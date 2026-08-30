@@ -1,0 +1,40 @@
+# Qt Creator 用户特定配置（绝对不能传，包含本地路径）
+*.pro.user
+*.pro.user.*
+
+# qmake 运行缓存
+.qmake.stash
+.qmake.cache
+
+# 构建目录（Qt Creator 默认的 Shadow Build 目录）
+build-*/
+
+# 在源码内编译时生成的临时目录
+debug/
+release/
+
+# 目标程序和库文件
+*.exe
+*.app
+*.dll
+*.so
+*.so.*
+*.a
+*.lib
+
+# 编译生成的中间代码文件
+*.o
+*.obj
+*.d
+
+# qmake 自动生成的 Makefile
+Makefile
+Makefile.Debug
+Makefile.Release
+
+# Qt 工具（moc/uic/rcc）自动生成的源文件
+moc_*.cpp
+moc_*.h
+ui_*.h
+qrc_*.cpp
+object_script.*
