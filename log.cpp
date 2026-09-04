@@ -16,13 +16,16 @@ bool Log::updataLog(Level level, const QString &mes)
         return wornLog(QStringLiteral("WORN"),mes);
         break;
       case Level::ALL:
-        qDebug()<<"一共有多少个级别:"<<Level::ALL;
+    {
+        QString str=QString("级别个数:%1").arg(static_cast<int>(Level::ALL));
+        return normalLog(QStringLiteral("NORMAL"),str);
+    }
         break;
       default:
         break;
     }
 
-    const QString str=QString("没有这个日志级别请输入[%1 %2]").arg("NORMAL").arg("WORN");
+    const QString str=QString("这个未处理日志 请输入[%1 %2]").arg("NORMAL").arg("WORN");
     bool is=wornLog(QStringLiteral("WRON"),str);
     if(is==false)qDebug()<<"写入日志失败,请检查日志文件";
     return is;

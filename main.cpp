@@ -17,6 +17,7 @@ int main(int argc, char *argv[])
 //    qDebug()<<f.pollingIntervalMs;
     Log::updataLog(Level::NORMAL,"narmal");
     Log::updataLog(Level::WORN,"worn");
+    Log::updataLog(Level::ALL,"ALL");
     Log::updataLog(Level::NO,"worn");
     return a.exec();
 }

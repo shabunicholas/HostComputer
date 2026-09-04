@@ -1,7 +1,7 @@
 #ifndef LOG_H
 #define LOG_H
 #include<QString>
-enum Level:int{
+enum  class Level:int{
     NORMAL,
     WORN,
     NO,
