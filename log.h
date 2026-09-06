@@ -3,7 +3,7 @@
 #include<QString>
 enum  class Level:int{
     NORMAL,
-    WORN,
+    WARN,
     NO,
     ALL
 };
@@ -12,14 +12,16 @@ enum  class Level:int{
 class Log
 {
 public:
-    Log()=default;
+    Log()=delete;
     static bool updataLog(Level level,const QString &mes);
 private:
     //写成单列也行
-    static bool wornLog(const QString &name=QStringLiteral("WORN"),
+    static bool wornLog(const QString &name=QString("WARN"),
                  const QString &mes=QString());
-    static bool normalLog(const QString &name=QStringLiteral("NORMAL"),
+    static bool normalLog(const QString &name=QString("NORMAL"),
                 const QString &mes=QString());
+
+    //真正的写入操作
     static bool writeLog(const QString &name=QString(),
                  const QString &mes=QString());
 };

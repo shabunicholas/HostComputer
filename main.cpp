@@ -9,15 +9,9 @@ int main(int argc, char *argv[])
     QApplication a(argc, argv);
     MainWindow w;
     w.show();
-//    Config f=Config::load("../config.ini");
-//    qDebug()<<f.serialPort;
-//    qDebug()<<f.baudRate;
-//    qDebug()<<f.reconnectIntervalMs;
-//    qDebug()<<f.pressureThreshold;
-//    qDebug()<<f.pollingIntervalMs;
     Log::updataLog(Level::NORMAL,"narmal");
-    Log::updataLog(Level::WORN,"worn");
-    Log::updataLog(Level::ALL,"ALL");
-    Log::updataLog(Level::NO,"worn");
+    Log::updataLog(Level::WARN,"警告");
+    Log::updataLog(Level::ALL,"总结信息");
+    Log::updataLog(Level::NO,"未处理");
     return a.exec();
 }
