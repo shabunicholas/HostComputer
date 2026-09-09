@@ -19,12 +19,14 @@ SOURCES += \
     config.cpp \
     log.cpp \
     main.cpp \
-    mainwindow.cpp
+    mainwindow.cpp \
+    serialport.cpp
 
 HEADERS += \
     config.h \
     log.h \
-    mainwindow.h
+    mainwindow.h \
+    serialport.h
 
 FORMS += \
     mainwindow.ui
