@@ -84,11 +84,11 @@ bool Serialport::reconnect()
     Log::updataLog(Level::NORMAL,str);
 
     if(reConut<=3){
-       QString str=QString("尝试次数%1，请重启程序:%2").arg(reConut)
-               .arg(serialPort_->errorString());
+       QString str=QString("尝试次数%1").arg(reConut);
        Log::updataLog(Level::ERROR,str);
-       timer_->start(reconnectIntervalMs_);
+       timer_->start(reconnectIntervalMs_+(reConut-1)*1000);
     }
+
 
     return false;
 }
