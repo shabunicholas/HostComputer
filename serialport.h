@@ -13,8 +13,7 @@ public:
     Serialport(QObject *parent=nullptr);
     bool open(Config &config);
 
-    bool close();
-    void reconnect();
+    void close();
 
 signals:
     void writeSig();
@@ -23,11 +22,14 @@ signals:
 //    bool readMes();
 //    bool writeMes();
 private:
-    bool loadPortConf();
+    void loadPortConf();
+    bool reconnect();
+    void error(QSerialPort::SerialPortError);
 private:
     QSerialPort *serialPort_;
     Config config_;
     QTimer *timer_;
+    bool userClose_;
     int reconnectIntervalMs_;
 };
 

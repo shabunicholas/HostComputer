@@ -20,6 +20,8 @@ bool Log::updataLog(Level level, const QString &mes)
       case Level::WARN:
         return wornLog(QStringLiteral("WARN"),mes);
         break;
+    case Level::ERROR:
+        return errorLog(QStringLiteral("ERROR"),mes);
       case Level::ALL:
     {
         QString str=QString("级别个数:%1[%2]").arg(static_cast<int>(Level::ALL))
@@ -43,6 +45,11 @@ bool Log::wornLog(const QString &name,const QString &mes)
 }
 
 bool Log::normalLog(const QString &name,const QString &mes)
+{
+    return writeLog(name,mes);
+}
+
+bool Log::errorLog(const QString &name, const QString &mes)
 {
     return writeLog(name,mes);
 }

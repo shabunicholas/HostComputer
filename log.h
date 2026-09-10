@@ -4,6 +4,7 @@
 enum  class Level:int{
     NORMAL,
     WARN,
+    ERROR,
     NO,
     ALL
 };
@@ -20,7 +21,8 @@ private:
                  const QString &mes=QString());
     static bool normalLog(const QString &name=QString("NORMAL"),
                 const QString &mes=QString());
-
+    static bool errorLog(const QString &name=QString("ERROR"),
+                const QString &mes=QString());
     //真正的写入操作
     static bool writeLog(const QString &name=QString(),
                  const QString &mes=QString());

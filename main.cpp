@@ -13,5 +13,7 @@ int main(int argc, char *argv[])
     Config config=Config::load();
     Serialport port(nullptr);
     port.open(config);
+    Log::updataLog(Level::ERROR,"错误");
+    port.open(config);
     return a.exec();
 }
