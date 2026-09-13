@@ -23,6 +23,7 @@ SOURCES += \
     serialport.cpp
 
 HEADERS += \
+    ProtocolCommand.h \
     config.h \
     log.h \
     mainwindow.h \
