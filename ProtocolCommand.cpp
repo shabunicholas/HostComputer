@@ -27,9 +27,19 @@ bool ProtocolCodec::parse(const QByteArray &frame, uint8_t &cmd, uint8_t &param,
     //9个字节
     //[包头][命令][参数][data][data][data][data][效验位][包尾]
     int count=0;
-    for(int i=0;i<7;i++){
+    for(int i=1;i<=7;i++){
+        uint8_t tem=(uint8_t)frame.at(i);
 
+        //while循环？
+        for(int j=0;j<8;j++){
+            if(tem & 0x01)count++;
+            tem>>=1;
+        }
     }
+
+    //奇偶效验，奇数则失败
+    bool is=count & 0x01;
+    if(is)return false;
 
     //小端
     cmd=frame.at(1);
