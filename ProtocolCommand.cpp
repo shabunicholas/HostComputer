@@ -1,23 +1,49 @@
 #include"ProtocolCommand.h"
 
 #include<QDebug>
-QByteArray ProtocolCodec::pack(uint8_t cmd, uint8_t param, const QByteArray &data)
+
+static int count_one(uint8_t c){
+    int count=0;
+
+
+    for(int i=0;i<8;i++){
+        if(c & 0x01)count++;
+        c>>=1;
+    }
+
+    return count;
+}
+
+QByteArray ProtocolCodec::pack(uint8_t cmd, uint8_t param, int data)
 {
     QByteArray array;
-    array.append(frame_header);
-    array.append(cmd);
-    array.append(param);
-    array.append(data);
-    array.append(frame_tail);
+    array.append(static_cast<char>(frame_header));
+    array.append(static_cast<char>(cmd));
+    array.append(static_cast<char>(param));
+    array.append(static_cast<char>(data & 0xFF));
+    array.append(static_cast<char>((data>>8) & 0xFF));
+    array.append(static_cast<char>((data>>16) & 0xFF));
+    array.append(static_cast<char>((data>>24) & 0xFF));
+
+    int count=0;
+    count+=count_one(cmd);
+    count+=count_one(param);
+    count+=count_one(static_cast<uint8_t>(data & 0xFF));
+    count+=count_one(static_cast<uint8_t>((data>>8) & 0xFF));
+    count+=count_one(static_cast<uint8_t>((data>>16) & 0xFF));
+    count+=count_one(static_cast<uint8_t>((data>>24) & 0xFF));
+
+    array.append(count & 0x01);
+    array.append(static_cast<char>(frame_tail));
 
     return array;
 }
 
-bool ProtocolCodec::parse(const QByteArray &frame, uint8_t &cmd, uint8_t &param, QByteArray &data)
+bool ProtocolCodec::parse(const QByteArray &frame, uint8_t &cmd, uint8_t &param, int &data)
 {
     if(frame.size()<9)return false;
-    uint8_t head=frame.at(0);
-    uint8_t tail=frame.at(8);
+    uint8_t head=static_cast<uint8_t>(frame.at(0));
+    uint8_t tail=static_cast<uint8_t>(frame.at(8));
 
     if(head!=frame_header || tail!=frame_tail){
         return false;
@@ -28,13 +54,8 @@ bool ProtocolCodec::parse(const QByteArray &frame, uint8_t &cmd, uint8_t &param,
     //[包头][命令][参数][data][data][data][data][效验位][包尾]
     int count=0;
     for(int i=1;i<=7;i++){
-        uint8_t tem=(uint8_t)frame.at(i);
 
-        //while循环？
-        for(int j=0;j<8;j++){
-            if(tem & 0x01)count++;
-            tem>>=1;
-        }
+        count+=count_one(static_cast<uint8_t>(frame.at(i)));
     }
 
     //奇偶效验，奇数则失败
@@ -42,12 +63,13 @@ bool ProtocolCodec::parse(const QByteArray &frame, uint8_t &cmd, uint8_t &param,
     if(is)return false;
 
     //小端
-    cmd=frame.at(1);
-    param=frame.at(2);
-    data=frame.mid(3,4);
-    int data_int= (int)(frame.at(3)) | (frame.at(4)<<8) |
-            (frame.at(5)<<16) | (frame.at(6)<<24);
-    qDebug()<<"数据(int):"<<data_int;
+    cmd=static_cast<uint8_t>(frame.at(1));
+    param=static_cast<uint8_t>(frame.at(2));
+    data=  static_cast<int>( (static_cast<uint8_t>(frame.at(3)) |
+            (static_cast<uint8_t>(frame.at(4))<<8) |
+            (static_cast<uint8_t>(frame.at(5))<<16) |
+            (static_cast<uint8_t>(frame.at(6))<<24)) );
+    qDebug()<<"数据:"<<data;
 
     return true;
 }
