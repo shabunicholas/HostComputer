@@ -59,6 +59,16 @@ void Serialport::close()
 
 }
 
+bool Serialport::readMes()
+{
+    return true;
+}
+
+bool Serialport::writeMes()
+{
+    return true;
+}
+
 //bool 会被忽略 除非手动调用
 bool Serialport::reconnect()
 {

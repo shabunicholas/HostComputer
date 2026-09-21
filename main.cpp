@@ -10,10 +10,10 @@ int main(int argc, char *argv[])
     QApplication a(argc, argv);
     MainWindow w;
     w.show();
-    Config config=Config::load();
-    Serialport port(nullptr);
-    port.open(config);
-    Log::updataLog(Level::ERROR,"错误");
-    port.open(config);
+//    Config config=Config::load();
+//    Serialport port(nullptr);
+//    port.open(config);
+//    Log::updataLog(Level::ERROR,"错误");
+//    port.open(config);
     return a.exec();
 }

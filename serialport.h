@@ -4,6 +4,7 @@
 #include <QObject>
 #include<QSerialPort>
 #include<QTimer>
+#include<QByteArray>
 #include"config.h"
 #include"log.h"
 class Serialport : public QObject
@@ -18,9 +19,10 @@ public:
 signals:
     void writeSig();
     void readSig();
-//private slots:暂时不适应信号与曹 使用跨线程 虽然串口是不安全的
-//    bool readMes();
-//    bool writeMes();
+//暂时不适应信号与曹 使用跨线程 虽然串口是不安全的(还是用信号槽了)
+private slots:
+    bool readMes();
+    bool writeMes();
 private:
     void loadPortConf();
     bool reconnect();
@@ -31,6 +33,7 @@ private:
     QTimer *timer_;
     bool userClose_;
     int reconnectIntervalMs_;
+    QByteArray buff_;
 };
 
 #endif // SERIALPORT_H

@@ -11,6 +11,7 @@ enum class COMMAND : uint8_t{
 
 class ProtocolCodec{
 public:
+
     static QByteArray pack(uint8_t cmd,uint8_t param ,int data);
     static bool parse(const QByteArray &frame,uint8_t &cmd,uint8_t &param,int &data);
 private:
