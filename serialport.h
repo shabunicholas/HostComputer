@@ -17,12 +17,12 @@ public:
     void close();
 
 signals:
-    void writeSig();
+    void writeSig(uint8_t cmd,uint8_t param,int data);
     void readSig();
 //暂时不适应信号与曹 使用跨线程 虽然串口是不安全的(还是用信号槽了)
 private slots:
-    bool readMes();
-    bool writeMes();
+    void readMes();
+    void writeMes(uint8_t cmd,uint8_t param,int data);
 private:
     void loadPortConf();
     bool reconnect();

@@ -59,14 +59,15 @@ void Serialport::close()
 
 }
 
-bool Serialport::readMes()
+void Serialport::readMes()
 {
-    return true;
+
 }
 
-bool Serialport::writeMes()
+void Serialport::writeMes(uint8_t cmd,uint8_t param,int data)
 {
-    return true;
+
+
 }
 
 //bool 会被忽略 除非手动调用
