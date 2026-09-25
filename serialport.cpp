@@ -61,12 +61,26 @@ void Serialport::close()
 
 void Serialport::readMes()
 {
+    buff_=serialPort_->readAll();
+    //定义一个处理分包粘包的函数
+
+    uint8_t cmd=0;
+    uint8_t param;
+    int data;
+    ProtocolCodec::parse(buff_,cmd,param,data);
+
+    emit readSig(cmd, param,data);
+
 
 }
 
 void Serialport::writeMes(uint8_t cmd,uint8_t param,int data)
 {
 
+    QByteArray buf=ProtocolCodec::pack(cmd,param,data);
+
+    qint64 size= serialPort_->write(buf);
+    qDebug()<<"写了:"<<size<<"字节";
 
 }
 

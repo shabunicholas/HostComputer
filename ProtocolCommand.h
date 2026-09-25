@@ -2,7 +2,7 @@
 #define PROTOCOLCOMMAND_H
 #include<cstdint>
 #include<QByteArray>
-#define MAX_PACK 9
+
 //static constexpr int MAX_PACK=9;
 enum class COMMAND : uint8_t{
     WEN_DU_REQ=0x01,
