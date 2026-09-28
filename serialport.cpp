@@ -2,6 +2,8 @@
 #include<QDebug>
 #include"log.h"
 static int reConut=0;
+static constexpr uint8_t frame_header=0xEF;
+static constexpr uint8_t frame_tail=0xFE;
 Serialport::Serialport(QObject *parent):QObject(parent),
     serialPort_(new QSerialPort(this)),
     timer_(new QTimer(this))
@@ -133,5 +135,24 @@ void Serialport::error(QSerialPort::SerialPortError er)
 
 QByteArray Serialport::takeOneFrame()
 {
+    if(buff_.isEmpty())return NULL;
+    while(!buff_.isEmpty()){
+        int index=buff_.indexOf(frame_header);
+        //去掉无效头
+        buff_=buff_.mid(index);
 
+        if(buff_.size()<MAX_PACK)break;
+
+        QByteArray frame=buff_.left(MAX_PACK);
+
+        if(static_cast<uint8_t>(frame.at(8))!=frame_tail){
+           //重新寻找下一个包头
+           buff_.remove(0,1);
+           continue;
+        }
+        //找到了一个包
+        buff_.remove(0,MAX_PACK);
+        return frame;
+    }
+    return NULL;
 }
