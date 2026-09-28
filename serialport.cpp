@@ -61,16 +61,18 @@ void Serialport::close()
 
 void Serialport::readMes()
 {
-    buff_=serialPort_->readAll();
+    //buff_=serialPort_->readAll();
+    buff_.append(serialPort_->readAll());
     //定义一个处理分包粘包的函数
-
+    QByteArray frame= takeOneFrame();
     uint8_t cmd=0;
-    uint8_t param;
-    int data;
-    ProtocolCodec::parse(buff_,cmd,param,data);
-
-    emit readSig(cmd, param,data);
-
+    uint8_t param=0;
+    int data=0;
+    if(ProtocolCodec::parse(frame,cmd,param,data)){
+        emit readData(cmd, param,data);
+    }else{
+        Log::updataLog(Level::WARN,QStringLiteral("解析失败"));
+    }
 
 }
 
@@ -127,4 +129,9 @@ void Serialport::error(QSerialPort::SerialPortError er)
     if(!timer_->isActive()){
        timer_->start(reconnectIntervalMs_);
     }
+}
+
+QByteArray Serialport::takeOneFrame()
+{
+
 }
