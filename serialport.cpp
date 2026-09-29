@@ -135,17 +135,22 @@ void Serialport::error(QSerialPort::SerialPortError er)
 
 QByteArray Serialport::takeOneFrame()
 {
-    if(buff_.isEmpty())return NULL;
+    if(buff_.isEmpty())return QByteArray();
     while(!buff_.isEmpty()){
-        int index=buff_.indexOf(frame_header);
+        int index=buff_.indexOf(static_cast<char>(frame_header));
         //去掉无效头
-        buff_=buff_.mid(index);
+        if(index>=0){
+          buff_=buff_.mid(index);
+        }else{
+            buff_.clear();
+            return QByteArray();
+        }
 
         if(buff_.size()<MAX_PACK)break;
 
         QByteArray frame=buff_.left(MAX_PACK);
 
-        if(static_cast<uint8_t>(frame.at(8))!=frame_tail){
+        if(static_cast<uint8_t>(frame.at(MAX_PACK-1))!=frame_tail){
            //重新寻找下一个包头
            buff_.remove(0,1);
            continue;
@@ -154,5 +159,5 @@ QByteArray Serialport::takeOneFrame()
         buff_.remove(0,MAX_PACK);
         return frame;
     }
-    return NULL;
+    return QByteArray();
 }
