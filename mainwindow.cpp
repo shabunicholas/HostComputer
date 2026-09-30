@@ -13,3 +13,10 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
+void MainWindow::init()
+{
+    Serialport *serialport=new Serialport();
+    QThread *thread=new QThread();
+    serialport->moveToThread(thread);
+}
+
