@@ -9,22 +9,25 @@
 #include"log.h"
 #include"ProtocolCommand.h"
 #define MAX_PACK 9
-
+class MainWindow;
 class Serialport : public QObject
 {
     Q_OBJECT
+    friend class MainWindow;
 public:
     Serialport(QObject *parent=nullptr);
-    bool open(Config &config);
+    bool open(const Config &config);
 
     void close();
 
+
 signals:
-    void writeSig(uint8_t cmd,uint8_t param,int data);
+    //void writeSig(uint8_t cmd,uint8_t param,int data);
     void readSig();
     void readData(uint8_t cmd,uint8_t param,int data);
 //暂时不适应信号与曹 使用跨线程 虽然串口是不安全的(还是用信号槽了)
 private slots:
+    void init();
     void readMes();
     void writeMes(uint8_t cmd,uint8_t param,int data);
 private:

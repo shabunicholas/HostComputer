@@ -15,9 +15,15 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
+signals:
+    void writeStart(uint8_t cmd, uint8_t param, int data);
 private:
     void init();
+private slots:
+    void readDataShow(uint8_t cmd,uint8_t param,int data);
 private:
+    Serialport *serialport_;
+    QThread *thread_;
     Ui::MainWindow *ui;
 };
 #endif // MAINWINDOW_H

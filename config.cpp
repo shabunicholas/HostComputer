@@ -17,7 +17,7 @@ Config Config::load(const QString &path)
     if(path.isEmpty()){
         configPath=QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("config.ini"));
     }
-
+    qDebug()<<"configPaht"<<configPath;
     QSettings settings(configPath,QSettings::IniFormat);
     config.serialPort=settings.value(QStringLiteral("Serial/Port"),
                                      config.serialPort).toString();

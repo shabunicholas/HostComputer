@@ -12,15 +12,17 @@ Serialport::Serialport(QObject *parent):QObject(parent),
     timer_->setSingleShot(true);
 //    config_=Config::load();
     reconnectIntervalMs_=2000;
-    connect(timer_,&QTimer::timeout,this,&Serialport::reconnect);
-    connect(serialPort_,&QSerialPort::errorOccurred,this,&Serialport::error);
+//    connect(timer_,&QTimer::timeout,this,&Serialport::reconnect);
+//    connect(serialPort_,&QSerialPort::errorOccurred,this,&Serialport::error);
     //timer_->start(reconnectIntervalMs_);
 }
 
-bool Serialport::open(Config &config)
+bool Serialport::open(const Config &config)
 {
     userClose_=false;
     config_=config;
+    qDebug()<<"congif_ name"<<config_.serialPort;
+
     reconnectIntervalMs_=config.reconnectIntervalMs;
     if(serialPort_->isOpen()){
        QString str=QString("串口已经打开了:%1").arg(serialPort_->portName());
@@ -61,17 +63,29 @@ void Serialport::close()
 
 }
 
+void Serialport::init()
+{
+    connect(timer_,&QTimer::timeout,this,&Serialport::reconnect);
+    connect(serialPort_,&QSerialPort::errorOccurred,this,&Serialport::error);
+    //connect(this,&Serialport::readSig,this,&Serialport::readMes);
+    connect(serialPort_,&QSerialPort::readyRead,this,&Serialport::readMes);
+    //connect(this,&Serialport::writeSig,this,&Serialport::writeMes);
+    open(Config::load());
+}
+
 void Serialport::readMes()
 {
     //buff_=serialPort_->readAll();
     buff_.append(serialPort_->readAll());
     //定义一个处理分包粘包的函数
+    qDebug()<<"buff:"<<buff_;
     QByteArray frame= takeOneFrame();
     uint8_t cmd=0;
     uint8_t param=0;
     int data=0;
     if(ProtocolCodec::parse(frame,cmd,param,data)){
         emit readData(cmd, param,data);
+        Log::updataLog(Level::NORMAL,QStringLiteral("解析成功"));
     }else{
         Log::updataLog(Level::WARN,QStringLiteral("解析失败"));
     }
