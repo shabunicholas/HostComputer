@@ -6,7 +6,8 @@ static constexpr uint8_t frame_header=0xEF;
 static constexpr uint8_t frame_tail=0xFE;
 Serialport::Serialport(QObject *parent):QObject(parent),
     serialPort_(new QSerialPort(this)),
-    timer_(new QTimer(this))
+    timer_(new QTimer(this)),
+    timerPoll_(new QTimer(this))
 {
 //    serialPort_=new QSerialPort();
     timer_->setSingleShot(true);
@@ -70,7 +71,10 @@ void Serialport::init()
     //connect(this,&Serialport::readSig,this,&Serialport::readMes);
     connect(serialPort_,&QSerialPort::readyRead,this,&Serialport::readMes);
     //connect(this,&Serialport::writeSig,this,&Serialport::writeMes);
+    connect(timerPoll_,&QTimer::timeout,this,&Serialport::writePoll);
     open(Config::load());
+
+    timerPoll_->start(3000);
 }
 
 void Serialport::readMes()
@@ -79,17 +83,19 @@ void Serialport::readMes()
     buff_.append(serialPort_->readAll());
     //定义一个处理分包粘包的函数
     qDebug()<<"buff:"<<buff_;
-    QByteArray frame= takeOneFrame();
-    uint8_t cmd=0;
-    uint8_t param=0;
-    int data=0;
-    if(ProtocolCodec::parse(frame,cmd,param,data)){
-        emit readData(cmd, param,data);
-        Log::updataLog(Level::NORMAL,QStringLiteral("解析成功"));
-    }else{
-        Log::updataLog(Level::WARN,QStringLiteral("解析失败"));
+    while(true){
+        QByteArray frame= takeOneFrame();
+        if(frame.isEmpty())return;
+        uint8_t cmd=0;
+        uint8_t param=0;
+        int data=0;
+        if(ProtocolCodec::parse(frame,cmd,param,data)){
+            emit readData(cmd, param,data);
+            Log::updataLog(Level::NORMAL,QStringLiteral("解析成功"));
+        }else{
+            Log::updataLog(Level::WARN,QStringLiteral("解析失败"));
+        }
     }
-
 }
 
 void Serialport::writeMes(uint8_t cmd,uint8_t param,int data)
@@ -98,7 +104,12 @@ void Serialport::writeMes(uint8_t cmd,uint8_t param,int data)
     QByteArray buf=ProtocolCodec::pack(cmd,param,data);
 
     qint64 size= serialPort_->write(buf);
-    qDebug()<<"写了:"<<size<<"字节";
+    if(size==-1){
+        Log::updataLog(Level::ERROR,QString("串口写入失败:%1").arg(
+                           serialPort_->errorString()));
+        return;
+    }
+    qDebug()<<"写了:"<<size<<"字节 ("<<buf<<")";
 
 }
 
@@ -144,6 +155,19 @@ void Serialport::error(QSerialPort::SerialPortError er)
 
     if(!timer_->isActive()){
        timer_->start(reconnectIntervalMs_);
+    }
+}
+
+void Serialport::writePoll()
+{
+    //前面是命令，后面是编号(参数)
+    uint8_t cmd[][2]={
+        {static_cast<uint8_t>(COMMAND::WEN_DU_REQ),0x01},
+    };
+    size_t size=sizeof(cmd)/sizeof(cmd[0]);
+
+    for(size_t i=0;i<size;i++){
+        writeMes(cmd[i][0],cmd[i][1],0x5);
     }
 }
 

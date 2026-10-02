@@ -34,11 +34,13 @@ private:
     void loadPortConf();
     bool reconnect();
     void error(QSerialPort::SerialPortError);
+    void writePoll();
     QByteArray takeOneFrame();
 private:
     QSerialPort *serialPort_;
     Config config_;
     QTimer *timer_;
+    QTimer *timerPoll_;
     bool userClose_;
     int reconnectIntervalMs_;
     QByteArray buff_;
