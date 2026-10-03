@@ -74,7 +74,7 @@ void Serialport::init()
     connect(timerPoll_,&QTimer::timeout,this,&Serialport::writePoll);
     open(Config::load());
 
-    timerPoll_->start(3000);
+    timerPoll_->start(1000);
 }
 
 void Serialport::readMes()
@@ -167,7 +167,7 @@ void Serialport::writePoll()
     size_t size=sizeof(cmd)/sizeof(cmd[0]);
 
     for(size_t i=0;i<size;i++){
-        writeMes(cmd[i][0],cmd[i][1],0x5);
+        writeMes(cmd[i][0],cmd[i][1],0);
     }
 }
 

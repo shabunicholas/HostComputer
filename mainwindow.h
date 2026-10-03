@@ -19,8 +19,11 @@ signals:
     void writeStart(uint8_t cmd, uint8_t param, int data);
 private:
     void init();
+    void loadStyle(QWidget *widget,const QString &path);
 private slots:
     void readDataShow(uint8_t cmd,uint8_t param,int data);
+
+
 private:
     Serialport *serialport_;
     QThread *thread_;

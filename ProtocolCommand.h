@@ -6,7 +6,10 @@
 //static constexpr int MAX_PACK=9;
 enum class COMMAND : uint8_t{
     WEN_DU_REQ=0x01,
-    WEN_DU_RSP=0x02
+    WEN_DU_RSP=0x02,
+    YI_LI_GAN_REQ=0x05,
+    YI_LI_GAN_RSP=0x06,
+
 };
 
 class ProtocolCodec{
