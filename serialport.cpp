@@ -73,8 +73,8 @@ void Serialport::init()
     //connect(this,&Serialport::writeSig,this,&Serialport::writeMes);
     connect(timerPoll_,&QTimer::timeout,this,&Serialport::writePoll);
     open(Config::load());
-
-    timerPoll_->start(1000);
+    qDebug()<<config_.pollingIntervalMs;
+    timerPoll_->start(config_.pollingIntervalMs);
 }
 
 void Serialport::readMes()
@@ -109,7 +109,7 @@ void Serialport::writeMes(uint8_t cmd,uint8_t param,int data)
                            serialPort_->errorString()));
         return;
     }
-    qDebug()<<"写了:"<<size<<"字节 ("<<buf<<")";
+    //qDebug()<<"写了:"<<size<<"字节 ("<<buf<<")";
 
 }
 
