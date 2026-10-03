@@ -22,7 +22,10 @@ MainWindow::~MainWindow()
 
 void MainWindow::init()
 {
-//    loadStyle(ui->progressBar,":/qss/pro.qss");
+    //loadStyle(ui->progressBar,":/qss/pro.qss");
+    pro_[0]=ui->progressBar;
+    pro_[1]=ui->progressBar_2;
+    pro_[2]=ui->progressBar_3;
     serialport_=new Serialport();
     thread_=new QThread();
     serialport_->moveToThread(thread_);
@@ -50,12 +53,34 @@ void MainWindow::loadStyle(QWidget *widget, const QString &path)
 
 }
 
+void MainWindow::proSetVal(uint8_t param,int data)
+{
+    if(param<1 || param >3){
+        Log::updataLog(Level::WARN,QString("目前只有1，2，3,当前输入为:%1").arg(param));
+        return;
+    }
+
+    pro_[param-1]->setValue(data);
+
+}
+
 void MainWindow::readDataShow(uint8_t cmd, uint8_t param, int data)
 {
     qDebug()<<"cmd:"<<cmd<<" param:"<<param<<" data:"<<data;
-    ui->textEdit->setText(QString("cmd:%1,param:%2,data:%3")
+    ui->textEdit->append(QString("cmd:%1,param:%2,data:%3")
                           .arg(cmd).arg(param).arg(data));
-    ui->label->setText(QString("温度:%1").arg(QString::number(data)));
+
+
+    switch (cmd) {
+    case static_cast<uint8_t>(COMMAND::WEN_DU_RSP):
+        ui->label_wd->setText(QString("温度:%1").arg(data));
+        break;
+    case static_cast<uint8_t>(COMMAND::YI_LI_GAN_RSP):
+        proSetVal(param,data);
+        break;
+    default:
+        break;
+    }
 }
 
 

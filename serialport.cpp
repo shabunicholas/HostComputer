@@ -91,7 +91,7 @@ void Serialport::readMes()
         int data=0;
         if(ProtocolCodec::parse(frame,cmd,param,data)){
             emit readData(cmd, param,data);
-            Log::updataLog(Level::NORMAL,QStringLiteral("解析成功"));
+            //Log::updataLog(Level::NORMAL,QStringLiteral("解析成功"));
         }else{
             Log::updataLog(Level::WARN,QStringLiteral("解析失败"));
         }
@@ -160,9 +160,13 @@ void Serialport::error(QSerialPort::SerialPortError er)
 
 void Serialport::writePoll()
 {
+    //可以加入优先队列,之后把读写拆出去
     //前面是命令，后面是编号(参数)
     uint8_t cmd[][2]={
         {static_cast<uint8_t>(COMMAND::WEN_DU_REQ),0x01},
+        {static_cast<uint8_t>(COMMAND::YI_LI_GAN_REQ),0x01},
+        {static_cast<uint8_t>(COMMAND::YI_LI_GAN_REQ),0x02},
+        {static_cast<uint8_t>(COMMAND::YI_LI_GAN_REQ),0x03},
     };
     size_t size=sizeof(cmd)/sizeof(cmd[0]);
 

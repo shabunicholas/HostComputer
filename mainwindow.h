@@ -3,7 +3,9 @@
 
 #include <QMainWindow>
 #include<QThread>
+#include<QProgressBar>
 #include"serialport.h"
+
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
@@ -20,6 +22,8 @@ signals:
 private:
     void init();
     void loadStyle(QWidget *widget,const QString &path);
+    void proSetVal(uint8_t param,int data);
+    void proWarnStyle(uint8_t param,bool warn);
 private slots:
     void readDataShow(uint8_t cmd,uint8_t param,int data);
 
@@ -27,6 +31,8 @@ private slots:
 private:
     Serialport *serialport_;
     QThread *thread_;
+    bool warn_[3]={false};
+    QProgressBar *pro_[3];
     Ui::MainWindow *ui;
 };
 #endif // MAINWINDOW_H
