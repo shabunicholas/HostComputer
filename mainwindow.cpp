@@ -127,10 +127,10 @@ void MainWindow::readDataShow(uint8_t cmd, uint8_t param, int data)
         if(is_warn !=warn_[param-1]){
            warn_[param-1]=is_warn;
            if(is_warn){
-               Log::updataLog(Level::WARN,QString("%1[%2]发出警告!")
+               Log::updataLog(Level::WARN,QString("%1号[%2]发出警告!")
                               .arg(param).arg(data));
            }else{
-               Log::updataLog(Level::NORMAL,QString("%1[%2]警告解除!")
+               Log::updataLog(Level::NORMAL,QString("%1号[%2]警告解除!")
                               .arg(param).arg(data));
            }
         }
