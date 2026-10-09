@@ -66,7 +66,6 @@ void MainWindow::proSetVal(uint8_t param,int data)
     }
 
     pro_[param-1]->setValue(data);
-
 }
 
 void MainWindow::proWarnStyle(uint8_t param, bool warn)
@@ -117,12 +116,17 @@ void MainWindow::readDataShow(uint8_t cmd, uint8_t param, int data)
         break;
     case static_cast<uint8_t>(COMMAND::YI_LI_GAN_RSP):
     {
+        if(param<1 || param >3){
+            Log::updataLog(Level::WARN,QString("非法参数,有效为1~3,当前输入为:%1").arg(param));
+            return;
+        }
         if(data>MAX_DATA || data<0){
             qDebug()<<QString("无效数据:%1").arg(data);
             Log::updataLog(Level::ERROR,QString("无效数据:%1").arg(data));
             return;
         }
         proSetVal(param,data);
+
         bool is_warn= data>=config_.pressureThreshold ? true : false;
         if(is_warn !=warn_[param-1]){
            warn_[param-1]=is_warn;

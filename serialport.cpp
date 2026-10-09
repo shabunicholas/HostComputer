@@ -1,13 +1,14 @@
 #include "serialport.h"
 #include<QDebug>
 #include"log.h"
-static int reConut=0;
+//static int reConut=0;
 static constexpr uint8_t frame_header=0xEF;
 static constexpr uint8_t frame_tail=0xFE;
 Serialport::Serialport(QObject *parent):QObject(parent),
     serialPort_(new QSerialPort(this)),
     timer_(new QTimer(this)),
-    timerPoll_(new QTimer(this))
+    timerPoll_(new QTimer(this)),
+    reConut_(0)
 {
 //    serialPort_=new QSerialPort();
     timer_->setSingleShot(true);
@@ -114,14 +115,14 @@ void Serialport::writeMes(uint8_t cmd,uint8_t param,int data)
 }
 
 //bool 会被忽略 除非手动调用
-bool Serialport::reconnect()
+void Serialport::reconnect()
 {
-    if(userClose_)return false;
+    if(userClose_)return;
     if(serialPort_->isOpen()){
         QString str=QString("串口打开了，结束重连:%1").arg(serialPort_->portName());
         Log::updataLog(Level::NORMAL,str);
         timer_->stop();
-        return true;
+        return;
     }
 
     loadPortConf();
@@ -130,21 +131,24 @@ bool Serialport::reconnect()
         QString str=QString("串口重连成功:%1").arg(serialPort_->portName());
         Log::updataLog(Level::NORMAL,str);
         timer_->stop();
-        reConut=0;
-        return true;
+        reConut_=0;
+        return;
     }
-    reConut++;
+    reConut_++;
     QString str=QString("串口重连失败:%1 尝试重连中...").arg(serialPort_->errorString());
     Log::updataLog(Level::NORMAL,str);
 
-    if(reConut<=3){
-       QString str=QString("尝试次数%1").arg(reConut);
+    if(reConut_>=3){
+       QString str=QString("重连次数过多(%1次)，停止重连").arg(reConut_);
        Log::updataLog(Level::ERROR,str);
-       timer_->start(reconnectIntervalMs_+(reConut-1)*1000);
+       timer_->stop();
+       return;
     }
+    QString str1=QString("尝试次数%1").arg(reConut_);
+    Log::updataLog(Level::ERROR,str1);
+    timer_->start(reconnectIntervalMs_+(reConut_-1)*1000);
 
 
-    return false;
 }
 
 void Serialport::error(QSerialPort::SerialPortError er)
@@ -152,14 +156,15 @@ void Serialport::error(QSerialPort::SerialPortError er)
     if(er==QSerialPort::NoError || userClose_){
         return;
     }
-
-    if(!timer_->isActive()){
-       timer_->start(reconnectIntervalMs_);
-    }
+    Log::updataLog(Level::WARN,
+            QString("串口错误:%1").arg(serialPort_->errorString()));
 }
 
 void Serialport::writePoll()
 {
+    if(!serialPort_->isOpen()){
+        return;
+    }
     //可以加入优先队列,之后把读写拆出去
     //前面是命令，后面是编号(参数)
     uint8_t cmd[][2]={

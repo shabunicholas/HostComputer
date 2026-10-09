@@ -32,7 +32,7 @@ private slots:
     void writeMes(uint8_t cmd,uint8_t param,int data);
 private:
     void loadPortConf();
-    bool reconnect();
+    void reconnect();
     void error(QSerialPort::SerialPortError);
     void writePoll();
     QByteArray takeOneFrame();
@@ -44,6 +44,7 @@ private:
     bool userClose_;
     int reconnectIntervalMs_;
     QByteArray buff_;
+    int reConut_;
 };
 
 #endif // SERIALPORT_H
