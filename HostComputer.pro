@@ -22,6 +22,7 @@ SOURCES += \
     main.cpp \
     mainwindow.cpp \
     modbusmaster.cpp \
+    modbusprotocol.cpp \
     serialport.cpp
 
 HEADERS += \
@@ -30,6 +31,7 @@ HEADERS += \
     log.h \
     mainwindow.h \
     modbusmaster.h \
+    modbusprotocol.h \
     serialport.h
 
 FORMS += \
