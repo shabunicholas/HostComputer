@@ -72,14 +72,31 @@ ModbusRtuMaster::Result ModbusRtuMaster::writeMultipleRegisters(quint8 slave, qu
 
 }
 
+double ModbusRtuMaster::successRate() const
+{
+    if (tx_ == 0)
+        return 0.0;
+    return double(success_) / double(tx_);
+}
+
 void ModbusRtuMaster::resetStatistics()
 {
-
+    tx_ = rx_ = retries_ = timeouts_ = crcErrors_ = exceptions_ = success_ = 0;
+    emit statisticsChanged();
 }
 
 QString ModbusRtuMaster::resultText(ModbusRtuMaster::Result result)
 {
-
+    switch (result) {
+        case Result::Ok:                return QStringLiteral("成功");
+        case Result::NotOpen:           return QStringLiteral("传输未打开或写入失败");
+        case Result::InvalidArgument:   return QStringLiteral("本地参数非法（数量超限）");
+        case Result::Timeout:           return QStringLiteral("超时应答（重试用尽）");
+        case Result::CrcError:          return QStringLiteral("CRC 校验失败（重试用尽）");
+        case Result::Malformed:         return QStringLiteral("帧结构错误或应答与请求不匹配");
+        case Result::ExceptionResponse: return QStringLiteral("从站返回异常码");
+        }
+        return QStringLiteral("未知结果");
 }
 
 ModbusRtuMaster::Result ModbusRtuMaster::transact(quint8 slave, quint8 func, const QByteArray &payload, QByteArray &responsePdu, quint8 *exceptionCode)
@@ -99,12 +116,36 @@ bool ModbusRtuMaster::waitForResponse(quint8 requestFunc, QByteArray &raw, bool 
 
 int ModbusRtuMaster::expectedResponseLength(const QByteArray &rx) const
 {
+    //连从站地址和功能码都没有
+    if(rx.size()<2){
+       return -1;
+    }
+    quint8 fun=quint8(rx.at(1));
 
+    //异常[地址] [功能码|0x80] [异常码] [CRC低] [CRC高]
+    if(fun & 0x80)
+      return 5;
+    switch (fun) {
+    case Modbus::ReadHoldingRegisters:
+    case Modbus::ReadInputRegisters:
+         //从站地址 功能码 数据大小 数据 crc低 crc高
+         if(rx.size()<3)return -1;
+         return 3+ int(quint8(rx.at(2)))+2;
+    case Modbus::WriteSingleRegister:
+    case Modbus::WriteMultipleRegisters:
+        //从站地址 功能码 起始地址(2) 数量(2) crc低 crc高
+        return 8;
+    default:
+        //交给定时器
+        return -1;
+    }
 }
 
 void ModbusRtuMaster::drainInput()
 {
-
+    if (transport_)
+        //丢弃残留字节，避免上一轮的迟到应答造成错位
+        transport_->readAll();
 }
 
 void ModbusRtuMaster::resyncAfterTimeout()
