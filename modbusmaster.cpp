@@ -1,5 +1,5 @@
 #include "modbusmaster.h"
-
+#include"modbusprotocol.h"
 
 /*取2个字节的高低位，先按位与 转无符号1字节（防止符号位扩展，污染数据），在转char 这时char
  * 结果需要char,就不用隐式转化类型了*/
@@ -35,12 +35,19 @@ QIODevice *ModbusRtuMaster::transport() const
 
 void ModbusRtuMaster::setConfig(const ModbusRtuMaster::Config &config)
 {
-
+    config_=config;
+    if(config.responseTimeoutMs<10){
+        config_.responseTimeoutMs =10;
+    }
+    if(config.retries<0){
+        config_.retries=0;
+    }
+    gapMs_=qMax(5,Modbus::interFrameDelayMs(config_.baudRate)+2);
 }
 
 ModbusRtuMaster::Config ModbusRtuMaster::config() const
 {
-
+    return  config_;
 }
 
 ModbusRtuMaster::Result ModbusRtuMaster::readHoldingRegisters(quint8 slave, quint16 start, quint16 count, QVector<quint16> &out, quint8 *exceptionCode)
