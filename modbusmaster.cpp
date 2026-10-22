@@ -42,7 +42,9 @@ void ModbusRtuMaster::setConfig(const ModbusRtuMaster::Config &config)
     if(config.retries<0){
         config_.retries=0;
     }
-    gapMs_=qMax(5,Modbus::interFrameDelayMs(config_.baudRate)+2);
+
+    //传输速度太快，可能位1.75ms，最少去5ms兜底
+    gapMs_=qMax(5,(int)Modbus::interFrameDelayMs(config_.baudRate)+2);
 }
 
 ModbusRtuMaster::Config ModbusRtuMaster::config() const
