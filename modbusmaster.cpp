@@ -16,7 +16,8 @@ inline char loByte(qint16 v){
 ModbusRtuMaster::ModbusRtuMaster(QIODevice *transport, QObject *parent):
                  QObject(parent),transport_(transport)
 {
-
+    qRegisterMetaType<QVector<quint16>>("QVector<quint16>");
+    setConfig(config_);
 }
 
 ModbusRtuMaster::~ModbusRtuMaster(){
@@ -64,7 +65,28 @@ ModbusRtuMaster::Result ModbusRtuMaster::readInputRegisters(quint8 slave, quint1
 
 ModbusRtuMaster::Result ModbusRtuMaster::writeSingleRegister(quint8 slave, quint16 address, quint16 value, quint8 *exceptionCode)
 {
+    if(exceptionCode){
+        *exceptionCode=Modbus::ExcNone;
+    }
 
+    QByteArray payload;
+    payload.append(slave);
+    //除了crc其他都是大端
+    payload.append(hiByte(address));
+    payload.append(loByte(address));
+    payload.append(hiByte(value));
+    payload.append(loByte(value));
+
+    QByteArray pdu;
+    Result lastResult=transact(slave,uint8_t(Modbus::WriteSingleRegister),payload,pdu,exceptionCode);
+    //检查从站应答
+    if(lastResult!=Result::Ok){
+       if(pdu.size()<3 || pdu.mid(2,4)!=payload){
+          lastResult=Result::Malformed;
+       }
+    }
+
+    return lastResult;
 }
 
 ModbusRtuMaster::Result ModbusRtuMaster::writeMultipleRegisters(quint8 slave, quint16 start, const QVector<quint16> &values, quint8 *exceptionCode)
