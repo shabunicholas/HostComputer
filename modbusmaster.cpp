@@ -1,3 +1,5 @@
+#include<QEventLoop>
+#include<QTimer>
 #include "modbusmaster.h"
 #include"modbusprotocol.h"
 
@@ -53,14 +55,17 @@ ModbusRtuMaster::Config ModbusRtuMaster::config() const
     return  config_;
 }
 
+
+//读保持寄存器
 ModbusRtuMaster::Result ModbusRtuMaster::readHoldingRegisters(quint8 slave, quint16 start, quint16 count, QVector<quint16> &out, quint8 *exceptionCode)
 {
-
+    return readRegisters(slave,quint8(Modbus::ReadInputRegisters),start,count,out,exceptionCode);
 }
 
+//读只读寄存器
 ModbusRtuMaster::Result ModbusRtuMaster::readInputRegisters(quint8 slave, quint16 start, quint16 count, QVector<quint16> &out, quint8 *exceptionCode)
 {
-
+    return readRegisters(slave,quint8(Modbus::ReadDiscreteInputs),start,count,out,exceptionCode);
 }
 
 ModbusRtuMaster::Result ModbusRtuMaster::writeSingleRegister(quint8 slave, quint16 address, quint16 value, quint8 *exceptionCode)
@@ -81,7 +86,7 @@ ModbusRtuMaster::Result ModbusRtuMaster::writeSingleRegister(quint8 slave, quint
     Result lastResult=transact(slave,uint8_t(Modbus::WriteSingleRegister),payload,pdu,exceptionCode);
     //检查从站应答
     if(lastResult!=Result::Ok){
-       if(pdu.size()<3 || pdu.mid(2,4)!=payload){
+       if(pdu.size()!=6 || pdu.mid(2,4)!=payload){
           lastResult=Result::Malformed;
        }
     }
@@ -91,7 +96,33 @@ ModbusRtuMaster::Result ModbusRtuMaster::writeSingleRegister(quint8 slave, quint
 
 ModbusRtuMaster::Result ModbusRtuMaster::writeMultipleRegisters(quint8 slave, quint16 start, const QVector<quint16> &values, quint8 *exceptionCode)
 {
+    if(exceptionCode){
+        *exceptionCode=Modbus::ExcNone;
+    }
+    QByteArray payload;
+    int count=values.size();
+    payload.append(slave);
+    payload.append(hiByte(start));
+    payload.append(loByte(start));
+    payload.append(hiByte(count));
+    payload.append(loByte(count));
 
+    for(int i=0;i<count;i++){
+        payload.append(hiByte(values[i]));
+        payload.append(hiByte(values[i]));
+    }
+    QByteArray pdu;
+    Result lastResult=transact(slave,quint8(Modbus::WriteSingleRegister),payload,pdu,exceptionCode);
+    if(lastResult!=Result::Ok){
+       if(pdu.size()!=6
+          || quint8(pdu.at(2))!=quint8((start>>8) & 0xFF)
+          || quint8(pdu.at(3))!=quint8(start & 0xFF)
+          || quint8(pdu.at(4))!=quint8((count>>8) & 0xFF)
+          || quint8(pdu.at(5))!=quint8(count & 0xFF)){
+           lastResult=Result::Malformed;
+       }
+    }
+    return lastResult;
 }
 
 double ModbusRtuMaster::successRate() const
@@ -172,5 +203,20 @@ void ModbusRtuMaster::drainInput()
 
 void ModbusRtuMaster::resyncAfterTimeout()
 {
-
+    drainInput();
+    if(!transport_ || !transport_->isOpen())return;
+    QEventLoop loop;
+    QTimer timer;
+    timer.setSingleShot(true);
+    connect(&timer,&QTimer::timeout,[&](){
+        loop.quit();
+    });
+    connect(transport_,&QIODevice::readyRead,[&](){
+        //一直丢，直到总线静默为止
+        transport_->readAll();
+        timer.start(gapMs_);
+    });
+    timer.start(gapMs_);
+    transport_->disconnect(&loop);
+    drainInput();
 }
