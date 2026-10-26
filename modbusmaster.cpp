@@ -100,6 +100,9 @@ ModbusRtuMaster::Result ModbusRtuMaster::writeMultipleRegisters(quint8 slave, qu
     if(exceptionCode){
         *exceptionCode=Modbus::ExcNone;
     }
+    if (values.isEmpty() || values.size() > Modbus::MaxWriteRegisters){
+        return Result::InvalidArgument;
+    }
     QByteArray payload;
     int count=values.size();
     payload.append(hiByte(start));
@@ -164,6 +167,9 @@ ModbusRtuMaster::Result ModbusRtuMaster::readRegisters(quint8 slave, quint8 func
     if(exceptionCode){
        *exceptionCode=Modbus::ExcNone;
     }
+    if(count<1 || count>Modbus::MaxReadRegisters){
+        return Result::InvalidArgument;
+    }
     QByteArray payload;
     payload.append(hiByte(start));
     payload.append(loByte(start));
@@ -189,7 +195,11 @@ ModbusRtuMaster::Result ModbusRtuMaster::readRegisters(quint8 slave, quint8 func
 
 bool ModbusRtuMaster::waitForResponse(quint8 requestFunc, QByteArray &raw, bool &complete)
 {
-
+    if(!transport_ || !transport_->isOpen()){
+        return false;
+    }
+    raw.clear();
+    complete=false;
 }
 
 int ModbusRtuMaster::expectedResponseLength(const QByteArray &rx) const
