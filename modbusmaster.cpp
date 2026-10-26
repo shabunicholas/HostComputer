@@ -159,12 +159,93 @@ QString ModbusRtuMaster::resultText(ModbusRtuMaster::Result result)
 
 ModbusRtuMaster::Result ModbusRtuMaster::transact(quint8 slave, quint8 func, const QByteArray &payload, QByteArray &responsePdu, quint8 *exceptionCode)
 {
+
     if(exceptionCode){
         *exceptionCode=Modbus::ExcNone;
     }
     if(!transport_ || !transport_->isOpen()){
         return Result::NotOpen;
     }
+    Result r=Result::Ok;
+    //组数据
+    QByteArray frame;
+    frame.append(slave);
+    frame.append(func);
+    frame.append(payload);
+    frame=Modbus::appendCrc(frame);
+
+    int count=config_.retries+1;
+    for(int i=0;i<count;++i){
+        if(i==0){
+            drainInput();
+        }else{
+            retries_++;
+            if(config_.discardStaleOnRetry){
+                //半双工或者不稳定情况  RS-485
+                resyncAfterTimeout();
+            }else{
+                //全双工 RS-232
+                drainInput();
+            }
+        }
+
+        //写出去
+        qint64 size=transport_->write(frame);
+        if(size!=frame.size()){
+           r=Result::NotOpen;
+           continue;
+        }
+        tx_++;
+        emit frameSent(slave,frame);
+        emit statisticsChanged();
+
+        //拿应答
+        QByteArray adu;
+        bool complete=false;
+        if(!waitForResponse(func,adu,complete)){
+            timeouts_++;
+            r=Result::Timeout;
+            emit errorOccurred(slave, r, Modbus::ExcNone);
+            continue;
+        }
+        rx_++;
+        emit frameReceived(slave,adu);
+
+        //取pdu 只去掉了crc效验
+        QByteArray pdu;
+        if(!Modbus::stripAndCheckCrc(adu,&pdu)){
+            crcErrors_++;
+            r=Result::CrcError;
+            emit errorOccurred(slave, r, Modbus::ExcNone);
+            continue;
+        }
+        if (pdu.size() < 2 || quint8(pdu.at(0)) != slave) {
+            r= Result::Malformed;
+            continue;
+        }
+        //异常应答 最高位是1
+        const quint8 respFunc=quint8(pdu.at(1));
+        if(respFunc & 0x80){
+            // 异常应答是「合法的应答」，说明从站收到了请求，绝不能重发
+            const quint8 code = pdu.size() >= 3 ? quint8(pdu.at(2))
+                                                : quint8(Modbus::ExcSlaveDeviceFailure);
+            if (exceptionCode)
+                *exceptionCode = code;
+            ++exceptions_;
+            emit errorOccurred(slave, Result::ExceptionResponse, code);
+            emit statisticsChanged();
+            return Result::ExceptionResponse;
+        }
+        if (respFunc != func) {
+            r = Result::Malformed;                 // 应答与请求不匹配
+            continue;
+        }
+        success_++;
+        responsePdu=pdu;
+        emit statisticsChanged();
+        return Result::Ok;
+    }
+    return r;
 }
 
 ModbusRtuMaster::Result ModbusRtuMaster::readRegisters(quint8 slave, quint8 function, quint16 start, quint16 count, QVector<quint16> &out, quint8 *exceptionCode)
@@ -200,6 +281,8 @@ ModbusRtuMaster::Result ModbusRtuMaster::readRegisters(quint8 slave, quint8 func
 
 bool ModbusRtuMaster::waitForResponse(quint8 requestFunc, QByteArray &raw, bool &complete)
 {
+    //消除不使用参数的警告
+    Q_UNUSED(requestFunc);
     if(!transport_ || !transport_->isOpen()){
         return false;
     }
