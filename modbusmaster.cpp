@@ -159,7 +159,12 @@ QString ModbusRtuMaster::resultText(ModbusRtuMaster::Result result)
 
 ModbusRtuMaster::Result ModbusRtuMaster::transact(quint8 slave, quint8 func, const QByteArray &payload, QByteArray &responsePdu, quint8 *exceptionCode)
 {
-
+    if(exceptionCode){
+        *exceptionCode=Modbus::ExcNone;
+    }
+    if(!transport_ || !transport_->isOpen()){
+        return Result::NotOpen;
+    }
 }
 
 ModbusRtuMaster::Result ModbusRtuMaster::readRegisters(quint8 slave, quint8 function, quint16 start, quint16 count, QVector<quint16> &out, quint8 *exceptionCode)
@@ -200,6 +205,44 @@ bool ModbusRtuMaster::waitForResponse(quint8 requestFunc, QByteArray &raw, bool 
     }
     raw.clear();
     complete=false;
+    bool timeout=false;
+    //总超时和喂狗
+    QTimer total;
+    QTimer dog;
+    dog.setSingleShot(true);
+    total.setSingleShot(true);
+    QEventLoop loop;
+
+    const auto onData=[&](){
+        raw.append(transport_->readAll());
+        int size=expectedResponseLength(raw);
+        if(size>0 && raw.size()>=size){
+           complete = true;
+           loop.quit();
+           return;
+        }
+        dog.start(gapMs_);
+    };
+    connect(transport_,&QIODevice::readyRead,&loop,onData);
+    connect(&total,&QTimer::timeout,[&](){
+        timeout=true;
+        loop.quit();
+    });
+    connect(&dog,&QTimer::timeout,[&](){
+        complete=!raw.isEmpty();
+        loop.quit();
+    });
+
+    if(transport_->bytesAvailable()>0){
+       raw.append(transport_->readAll());
+    }
+    if(!complete){
+       loop.exec();
+    }
+    total.start(config_.responseTimeoutMs);
+    transport_->disconnect(&loop);
+
+    return complete && !timeout;
 }
 
 int ModbusRtuMaster::expectedResponseLength(const QByteArray &rx) const
@@ -252,6 +295,7 @@ void ModbusRtuMaster::resyncAfterTimeout()
         timer.start(gapMs_);
     });
     timer.start(gapMs_);
+    loop.exec();
     transport_->disconnect(&loop);
     drainInput();
 }
