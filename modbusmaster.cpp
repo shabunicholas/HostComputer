@@ -75,7 +75,6 @@ ModbusRtuMaster::Result ModbusRtuMaster::writeSingleRegister(quint8 slave, quint
     }
 
     QByteArray payload;
-    payload.append(slave);
     //除了crc其他都是大端
     payload.append(hiByte(address));
     payload.append(loByte(address));
@@ -86,10 +85,12 @@ ModbusRtuMaster::Result ModbusRtuMaster::writeSingleRegister(quint8 slave, quint
     Result lastResult=transact(slave,uint8_t(Modbus::WriteSingleRegister),payload,pdu,exceptionCode);
     //检查从站应答
     if(lastResult!=Result::Ok){
-       if(pdu.size()!=6 || pdu.mid(2,4)!=payload){
-          lastResult=Result::Malformed;
-       }
+       return lastResult;
     }
+    if(pdu.size()!=6 || pdu.mid(2,4)!=payload){
+       lastResult=Result::Malformed;
+    }
+
 
     return lastResult;
 }
@@ -101,12 +102,11 @@ ModbusRtuMaster::Result ModbusRtuMaster::writeMultipleRegisters(quint8 slave, qu
     }
     QByteArray payload;
     int count=values.size();
-    payload.append(slave);
     payload.append(hiByte(start));
     payload.append(loByte(start));
     payload.append(hiByte(count));
     payload.append(loByte(count));
-
+    payload.append(static_cast<char>(quint8(count * 2)));
     for(int i=0;i<count;i++){
         payload.append(hiByte(values[i]));
         payload.append(hiByte(values[i]));
@@ -114,14 +114,16 @@ ModbusRtuMaster::Result ModbusRtuMaster::writeMultipleRegisters(quint8 slave, qu
     QByteArray pdu;
     Result lastResult=transact(slave,quint8(Modbus::WriteSingleRegister),payload,pdu,exceptionCode);
     if(lastResult!=Result::Ok){
-       if(pdu.size()!=6
+       return lastResult;
+    }
+    if(pdu.size()!=6
           || quint8(pdu.at(2))!=quint8((start>>8) & 0xFF)
           || quint8(pdu.at(3))!=quint8(start & 0xFF)
           || quint8(pdu.at(4))!=quint8((count>>8) & 0xFF)
           || quint8(pdu.at(5))!=quint8(count & 0xFF)){
            lastResult=Result::Malformed;
-       }
     }
+
     return lastResult;
 }
 
@@ -159,7 +161,30 @@ ModbusRtuMaster::Result ModbusRtuMaster::transact(quint8 slave, quint8 func, con
 
 ModbusRtuMaster::Result ModbusRtuMaster::readRegisters(quint8 slave, quint8 function, quint16 start, quint16 count, QVector<quint16> &out, quint8 *exceptionCode)
 {
+    if(exceptionCode){
+       *exceptionCode=Modbus::ExcNone;
+    }
+    QByteArray payload;
+    payload.append(hiByte(start));
+    payload.append(loByte(start));
+    payload.append(hiByte(count));
+    payload.append(loByte(count));
+    QByteArray pdu;
+    Result lastResult=transact(slave,function,payload,pdu,exceptionCode);
+    if(lastResult!=Result::Ok){
+        return lastResult;
+    }
+    if(pdu.size()<3 || pdu.at(2)!=count*2){
+        lastResult=Result::Malformed;
+    }
 
+    for(int i=0;i<count;i++){
+        const int off=3+i*2;
+        quint16 c=quint16((quint8(off))<<8 | quint8(pdu.at(off+1)));
+        out.append(c);
+    }
+    emit registersRead(slave, start, out);
+    return lastResult;
 }
 
 bool ModbusRtuMaster::waitForResponse(quint8 requestFunc, QByteArray &raw, bool &complete)
