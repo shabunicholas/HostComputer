@@ -184,7 +184,7 @@ ModbusRtuMaster::Result ModbusRtuMaster::transact(quint8 slave, quint8 func, con
                 //半双工或者不稳定情况  RS-485
                 resyncAfterTimeout();
             }else{
-                //全双工 RS-232
+                //全双工 RS-232 内存回环测试（没有物理延迟），或能确定超时时刻线路上一定干净的场景
                 drainInput();
             }
         }
