@@ -4,22 +4,47 @@
 
 quint16 Modbus::crc16(const quint8 *data, int length)
 {
-
+    quint16 crc = 0xFFFF;                       // Modbus 初值
+    for (int i = 0; i < length; ++i) {
+        crc ^= quint16(data[i]);
+        for (int bit = 0; bit < 8; ++bit) {
+            if (crc & 0x0001)
+                crc = quint16((crc >> 1) ^ 0xA001);   // 反向多项式
+            else
+                crc = quint16(crc >> 1);
+        }
+    }
+    return crc;
 }
 
 quint16 Modbus::crc16(const QByteArray &data)
 {
-
+    return crc16(reinterpret_cast<const quint8 *>(data.constData()), int(data.size()));
 }
 
 bool Modbus::stripAndCheckCrc(const QByteArray &frame, QByteArray *pduOut)
 {
+    if (frame.size() < 5)                               // 最短合法应答 5 字节
+        return false;
 
+    const QByteArray body = frame.left(frame.size() - 2);
+    const quint16 want = quint16(quint8(frame.at(frame.size() - 2)))
+                       | quint16(quint8(frame.at(frame.size() - 1)) << 8);
+    if (crc16(body) != want)
+        return false;
+
+    if (pduOut)
+        *pduOut = body;
+    return true;
 }
 
 QByteArray Modbus::appendCrc(const QByteArray &pdu)
 {
-
+    QByteArray out = pdu;
+    const quint16 crc = crc16(pdu);
+    out.append(static_cast<char>(crc & 0xFF));          // 低字节先发（Modbus 约定）
+    out.append(static_cast<char>((crc >> 8) & 0xFF));
+    return out;
 }
 
 QString Modbus::exceptionText(quint8 code)
