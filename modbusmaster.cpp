@@ -59,13 +59,13 @@ ModbusRtuMaster::Config ModbusRtuMaster::config() const
 //读保持寄存器
 ModbusRtuMaster::Result ModbusRtuMaster::readHoldingRegisters(quint8 slave, quint16 start, quint16 count, QVector<quint16> &out, quint8 *exceptionCode)
 {
-    return readRegisters(slave,quint8(Modbus::ReadInputRegisters),start,count,out,exceptionCode);
+    return readRegisters(slave,quint8(Modbus::ReadHoldingRegisters),start,count,out,exceptionCode);
 }
 
 //读只读寄存器
 ModbusRtuMaster::Result ModbusRtuMaster::readInputRegisters(quint8 slave, quint16 start, quint16 count, QVector<quint16> &out, quint8 *exceptionCode)
 {
-    return readRegisters(slave,quint8(Modbus::ReadDiscreteInputs),start,count,out,exceptionCode);
+    return readRegisters(slave,quint8(Modbus::ReadInputRegisters),start,count,out,exceptionCode);
 }
 
 ModbusRtuMaster::Result ModbusRtuMaster::writeSingleRegister(quint8 slave, quint16 address, quint16 value, quint8 *exceptionCode)
@@ -112,10 +112,10 @@ ModbusRtuMaster::Result ModbusRtuMaster::writeMultipleRegisters(quint8 slave, qu
     payload.append(static_cast<char>(quint8(count * 2)));
     for(int i=0;i<count;i++){
         payload.append(hiByte(values[i]));
-        payload.append(hiByte(values[i]));
+        payload.append(loByte(values[i]));
     }
     QByteArray pdu;
-    Result lastResult=transact(slave,quint8(Modbus::WriteSingleRegister),payload,pdu,exceptionCode);
+    Result lastResult=transact(slave,quint8(Modbus::WriteMultipleRegisters),payload,pdu,exceptionCode);
     if(lastResult!=Result::Ok){
        return lastResult;
     }
@@ -266,13 +266,13 @@ ModbusRtuMaster::Result ModbusRtuMaster::readRegisters(quint8 slave, quint8 func
     if(lastResult!=Result::Ok){
         return lastResult;
     }
-    if(pdu.size()<3 || pdu.at(2)!=count*2){
-        lastResult=Result::Malformed;
+    if(pdu.size()<3 || quint8(pdu.at(2))!=count*2){
+        return Result::Malformed;
     }
 
     for(int i=0;i<count;i++){
         const int off=3+i*2;
-        quint16 c=quint16((quint8(off))<<8 | quint8(pdu.at(off+1)));
+        quint16 c=quint16((quint8(pdu.at(off)))<<8 | quint8(pdu.at(off+1)));
         out.append(c);
     }
     emit registersRead(slave, start, out);
@@ -307,7 +307,7 @@ bool ModbusRtuMaster::waitForResponse(quint8 requestFunc, QByteArray &raw, bool 
         dog.start(gapMs_);
     };
     connect(transport_,&QIODevice::readyRead,&loop,onData);
-    connect(&total,&QTimer::timeout,[&](){
+    connect(&total,&QTimer::timeout,&loop,[&](){
         timeout=true;
         loop.quit();
     });
@@ -316,13 +316,16 @@ bool ModbusRtuMaster::waitForResponse(quint8 requestFunc, QByteArray &raw, bool 
         loop.quit();
     });
 
+    total.start(config_.responseTimeoutMs);
+
     if(transport_->bytesAvailable()>0){
-       raw.append(transport_->readAll());
+       //raw.append(transport_->readAll());
+        onData();
     }
     if(!complete){
        loop.exec();
     }
-    total.start(config_.responseTimeoutMs);
+
     transport_->disconnect(&loop);
 
     return complete && !timeout;
@@ -372,7 +375,7 @@ void ModbusRtuMaster::resyncAfterTimeout()
     connect(&timer,&QTimer::timeout,[&](){
         loop.quit();
     });
-    connect(transport_,&QIODevice::readyRead,[&](){
+    connect(transport_,&QIODevice::readyRead,&loop,[&](){
         //一直丢，直到总线静默为止
         transport_->readAll();
         timer.start(gapMs_);
