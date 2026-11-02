@@ -1,6 +1,7 @@
 #include "serialport.h"
 #include<QDebug>
 #include"log.h"
+#include"modbusprotocol.h"
 //static int reConut=0;
 static constexpr uint8_t frame_header=0xEF;
 static constexpr uint8_t frame_tail=0xFE;
@@ -50,7 +51,10 @@ void Serialport::loadPortConf()
     serialPort_->setPortName(config_.serialPort);
     serialPort_->setBaudRate(config_.baudRate);
     serialPort_->setDataBits(QSerialPort::Data8);
-    serialPort_->setParity(QSerialPort::NoParity);
+    // Modbus RTU 规范要求 11 位/字符（8E1）；自定义帧保持原来的 8N1
+    const bool isModbus=config_.protocol.compare(QStringLiteral("modbus"),
+                                                 Qt::CaseInsensitive)==0;
+    serialPort_->setParity(isModbus ? QSerialPort::EvenParity : QSerialPort::NoParity);
     serialPort_->setStopBits(QSerialPort::OneStop);
     serialPort_->setFlowControl(QSerialPort::NoFlowControl);
 }
@@ -69,11 +73,40 @@ void Serialport::init()
 {
     connect(timer_,&QTimer::timeout,this,&Serialport::reconnect);
     connect(serialPort_,&QSerialPort::errorOccurred,this,&Serialport::error);
-    //connect(this,&Serialport::readSig,this,&Serialport::readMes);
-    connect(serialPort_,&QSerialPort::readyRead,this,&Serialport::readMes);
-    //connect(this,&Serialport::writeSig,this,&Serialport::writeMes);
     connect(timerPoll_,&QTimer::timeout,this,&Serialport::writePoll);
+
     open(Config::load());
+
+    const bool isModbus=config_.protocol.compare(QStringLiteral("modbus"),
+                                                 Qt::CaseInsensitive)==0;
+    if(isModbus){
+        // 关键：Modbus 模式下主站自己在 waitForResponse() 里读串口，
+        // 绝不能再连 readyRead->readMes，否则两边抢同一批字节，症状是"永远超时"
+        modbus_=new ModbusRtuMaster(serialPort_,this);
+        ModbusRtuMaster::Config mc=modbus_->config();
+        mc.baudRate=config_.baudRate;
+        mc.responseTimeoutMs=config_.modbusResponseTimeoutMs;
+        mc.retries=config_.modbusRetries;
+        modbus_->setConfig(mc);
+
+        connect(modbus_,&ModbusRtuMaster::errorOccurred,this,
+                [](quint8 slave,ModbusRtuMaster::Result r,quint8 exc){
+            if(r==ModbusRtuMaster::Result::ExceptionResponse){
+                Log::updataLog(Level::WARN,QString("Modbus 从站%1异常:%2")
+                               .arg(slave).arg(Modbus::exceptionText(exc)));
+            }else{
+                Log::updataLog(Level::WARN,QString("Modbus 通信失败(从站%1):%2")
+                               .arg(slave).arg(ModbusRtuMaster::resultText(r)));
+            }
+        });
+        Log::updataLog(Level::NORMAL,QString("协议=Modbus RTU，从站地址 %1，超时 %2ms")
+                       .arg(config_.modbusSlaveAddress)
+                       .arg(config_.modbusResponseTimeoutMs));
+    }else{
+        connect(serialPort_,&QSerialPort::readyRead,this,&Serialport::readMes);
+        Log::updataLog(Level::NORMAL,QStringLiteral("协议=自定义帧"));
+    }
+
     qDebug()<<config_.pollingIntervalMs;
     timerPoll_->start(config_.pollingIntervalMs);
 }
@@ -162,6 +195,18 @@ void Serialport::error(QSerialPort::SerialPortError er)
 
 void Serialport::writePoll()
 {
+    const bool isModbus=config_.protocol.compare(QStringLiteral("modbus"),
+                                                 Qt::CaseInsensitive)==0;
+    if(isModbus){
+        pollModbus();
+    }else{
+        pollCustom();
+    }
+}
+
+// 自定义帧协议：原来的盲发轮询，逻辑不动
+void Serialport::pollCustom()
+{
     if(!serialPort_->isOpen()){
         return;
     }
@@ -177,6 +222,49 @@ void Serialport::writePoll()
 
     for(size_t i=0;i<size;i++){
         writeMes(cmd[i][0],cmd[i][1],0);
+    }
+}
+
+// Modbus RTU：请求-应答模式。主站在工作线程里同步等待，不会卡界面
+void Serialport::pollModbus()
+{
+    if(!modbus_ || !serialPort_->isOpen()){
+        return;
+    }
+
+    const quint8 slave=quint8(config_.modbusSlaveAddress);
+    quint8 exc=0;
+    QVector<quint16> regs;
+
+    // 温度：读 1 个输入寄存器
+    ModbusRtuMaster::Result r=modbus_->readInputRegisters(
+                slave,quint16(config_.modbusTempRegister),1,regs,&exc);
+    if(r==ModbusRtuMaster::Result::Ok && regs.size()==1){
+        emit readData(static_cast<uint8_t>(COMMAND::WEN_DU_RSP),0x01,int(regs.at(0)));
+    }else if(r==ModbusRtuMaster::Result::ExceptionResponse){
+        Log::updataLog(Level::WARN,QString("读温度被从站拒绝:%1")
+                       .arg(Modbus::exceptionText(exc)));
+    }else{
+        Log::updataLog(Level::ERROR,QString("读温度失败:%1")
+                       .arg(ModbusRtuMaster::resultText(r)));
+    }
+
+    // 压力：从指定地址起连续读 3 个
+    regs.clear();
+    exc=0;
+    r=modbus_->readInputRegisters(slave,quint16(config_.modbusPressureRegister),
+                                  3,regs,&exc);
+    if(r==ModbusRtuMaster::Result::Ok && regs.size()==3){
+        for(int i=0;i<3;++i){
+            emit readData(static_cast<uint8_t>(COMMAND::YI_LI_GAN_RSP),
+                          quint8(i+1),int(regs.at(i)));
+        }
+    }else if(r==ModbusRtuMaster::Result::ExceptionResponse){
+        Log::updataLog(Level::WARN,QString("读压力被从站拒绝:%1")
+                       .arg(Modbus::exceptionText(exc)));
+    }else{
+        Log::updataLog(Level::ERROR,QString("读压力失败:%1")
+                       .arg(ModbusRtuMaster::resultText(r)));
     }
 }
 

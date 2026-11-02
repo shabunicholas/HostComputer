@@ -8,6 +8,7 @@
 #include"config.h"
 #include"log.h"
 #include"ProtocolCommand.h"
+#include"modbusmaster.h"
 #define MAX_PACK 9
 class MainWindow;
 class Serialport : public QObject
@@ -34,7 +35,9 @@ private:
     void loadPortConf();
     void reconnect();
     void error(QSerialPort::SerialPortError);
-    void writePoll();
+    void writePoll();       // 按 config_.protocol 分发
+    void pollCustom();      // 自定义帧协议（原 writePoll 逻辑）
+    void pollModbus();      // Modbus RTU 主站轮询
     QByteArray takeOneFrame();
 private:
     QSerialPort *serialPort_;
@@ -45,6 +48,7 @@ private:
     int reconnectIntervalMs_;
     QByteArray buff_;
     int reConut_;
+    ModbusRtuMaster *modbus_ = nullptr;   // 仅 protocol=modbus 时创建
 };
 
 #endif // SERIALPORT_H

@@ -30,5 +30,19 @@ Config Config::load(const QString &path)
     config.pollingIntervalMs=settings.value(QStringLiteral("Polling/IntervalMs"),
                                      config.pollingIntervalMs).toInt();
 
+    // 协议选择与 Modbus 参数
+    config.protocol=settings.value(QStringLiteral("Protocol/Name"),
+                                   config.protocol).toString();
+    config.modbusSlaveAddress=settings.value(QStringLiteral("Protocol/ModbusSlaveAddress"),
+                                             config.modbusSlaveAddress).toInt();
+    config.modbusResponseTimeoutMs=settings.value(QStringLiteral("Protocol/ModbusResponseTimeoutMs"),
+                                                  config.modbusResponseTimeoutMs).toInt();
+    config.modbusRetries=settings.value(QStringLiteral("Protocol/ModbusRetries"),
+                                        config.modbusRetries).toInt();
+    config.modbusTempRegister=settings.value(QStringLiteral("Protocol/ModbusTempRegister"),
+                                             config.modbusTempRegister).toInt();
+    config.modbusPressureRegister=settings.value(QStringLiteral("Protocol/ModbusPressureRegister"),
+                                                 config.modbusPressureRegister).toInt();
+
     return config;
 }
