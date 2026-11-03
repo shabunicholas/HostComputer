@@ -2,7 +2,7 @@
 #include "ui_mainwindow.h"
 #include<QDebug>
 #include<QFile>
-#define MAX_DATA 1200
+// MAX_DATA 已移除：不再用写死量程上限拦截压力数据（理由见 readDataShow 里的注释）
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , serialport_(nullptr),thread_(nullptr),ui(new Ui::MainWindow)
@@ -23,11 +23,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::init(const QString &configPath)
 {
-    //loadStyle(ui->progressBar,":/qss/pro.qss");
     config_=Config::load(configPath);
-    pro_[0]=ui->progressBar;
-    pro_[1]=ui->progressBar_2;
-    pro_[2]=ui->progressBar_3;
     lab_[0]=ui->label_1;
     lab_[1]=ui->label_2;
     lab_[2]=ui->label_3;
@@ -58,6 +54,23 @@ void MainWindow::loadStyle(QWidget *widget, const QString &path)
 
 }
 
+void MainWindow::refreshLabel(int index)
+{
+    if(index<0 || index>2 || !lab_[index]){
+        return;
+    }
+
+    const bool isWarn=warn_[index];
+    lab_[index]->setText(QString("%1号    %2 Pa    %3")
+                         .arg(index+1)
+                         .arg(lastVal_[index])
+                         .arg(isWarn ? QStringLiteral("超限") : QStringLiteral("正常")));
+    // 字号一次给足（22px ≈ 16.5pt），超限时再加粗变红；上下留点内边距避免三行挤在一起
+    lab_[index]->setStyleSheet(isWarn
+        ? QStringLiteral("color:#C0392B; font-weight:bold; font-size:22px; padding:6px 0;")
+        : QStringLiteral("color:#1E8449; font-size:22px; padding:6px 0;"));
+}
+
 void MainWindow::proSetVal(uint8_t param,int data)
 {
     if(param<1 || param >3){
@@ -65,7 +78,8 @@ void MainWindow::proSetVal(uint8_t param,int data)
         return;
     }
 
-    pro_[param-1]->setValue(data);
+    lastVal_[param-1]=data;
+    refreshLabel(param-1);
 }
 
 void MainWindow::proWarnStyle(uint8_t param, bool warn)
@@ -76,32 +90,8 @@ void MainWindow::proWarnStyle(uint8_t param, bool warn)
         return;
     }
 
-    QString color = warn ? "#E74C3C" : "#3498DB";
-
-    QString qss = QString(
-           "QProgressBar {"
-           "    border: none;"
-           "    border-radius: 3px;"
-           "    background-color: #E8E8E8;"
-           "    text-align: center;"
-           "    color: #333;"
-           "    font-size: 12px;"
-           "}"
-           "QProgressBar::chunk {"
-           "    border-radius: 6px;"
-           "    background-color: %1;"
-           "}"
-       ).arg(color);
-
-       pro_[param - 1]->setStyleSheet(qss);
-       if(warn){
-           lab_[param-1]->setText(QString("%1号警告").arg(param));
-           lab_[param - 1]->setStyleSheet("color: red;");
-       }else{
-           lab_[param-1]->setText(QString("%1号正常").arg(param));
-           lab_[param - 1]->setStyleSheet("color: green;");
-       }
-
+    warn_[param-1]=warn;
+    refreshLabel(param-1);
 }
 
 void MainWindow::readDataShow(uint8_t cmd, uint8_t param, int data)
@@ -120,11 +110,9 @@ void MainWindow::readDataShow(uint8_t cmd, uint8_t param, int data)
             Log::updataLog(Level::WARN,QString("非法参数,有效为1~3,当前输入为:%1").arg(param));
             return;
         }
-        if(data>MAX_DATA || data<0){
-            qDebug()<<QString("无效数据:%1").arg(data);
-            Log::updataLog(Level::ERROR,QString("无效数据:%1").arg(data));
-            return;
-        }
+        // 这里原来有个 data>MAX_DATA(1200) 的拦截，已移除：
+        // 数据完整性已由 CRC 校验 + 超时重发保证，应用层再卡一个硬编码上限
+        // 只会误杀正常数据（阈值 2000 永远等不到，报警功能形同废掉）。
         proSetVal(param,data);
 
         bool is_warn= data>=config_.pressureThreshold ? true : false;
