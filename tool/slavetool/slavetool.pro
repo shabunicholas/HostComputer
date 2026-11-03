@@ -14,16 +14,18 @@ greaterThan(QT_MAJOR_VERSION, 5) {
 TEMPLATE = app
 TARGET = ModbusSlaveTool
 
-# 复用上层 modbus 目录里的从站核心与协议层，不复制代码
-INCLUDEPATH += ..
+# 复用而不是复制：
+#   ../        = tool/           → modbusslave.h / .cpp
+#   ../..      = 仓库根目录       → modbusprotocol.h / .cpp
+INCLUDEPATH += .. ../..
 
 SOURCES += \
     main_slavetool.cpp \
-    ../modbusprotocol.cpp \
+    ../../modbusprotocol.cpp \
     ../modbusslave.cpp
 
 HEADERS += \
-    ../modbusprotocol.h \
+    ../../modbusprotocol.h \
     ../modbusslave.h
 
 # 生成到上层 build 之外的独立目录，避免和自测工程互相覆盖
