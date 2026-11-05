@@ -27,6 +27,7 @@
 #include <QRandomGenerator>
 #include <QSerialPort>
 #include <QSerialPortInfo>
+#include <QStringList>
 #include <QTimer>
 #include <cmath>
 #include <cstdio>
@@ -253,6 +254,9 @@ private slots:
 
     void updateSimulatedValues()
     {
+        if (simPaused_)
+            return;                     // 手动设值期间不自动刷新
+
         ++tick_;
 
         // 温度：22.0~28.0℃（按 0.1℃ 精度存整数 → 220~280）
@@ -274,12 +278,83 @@ private slots:
 #ifdef Q_OS_WIN
         while (_kbhit()) {
             const int key = _getch();
-            handleKey(key);
+            if (inputMode_)
+                handleInputChar(key);
+            else
+                handleKey(key);
         }
 #endif
     }
 
 private:
+    // ---- 手动设值：输入「通道 数值」，0=温度，1~N=压力 ----
+    void printInputPrompt()
+    {
+        say(QStringLiteral(">> 输入「通道 数值」后回车（0=温度，1~%1=压力），Esc 取消")
+            .arg(opt_.pressCount));
+        say(QStringLiteral("   例如  2 1500   → 把压力2 设为 1500"));
+        say(QStringLiteral("   当前输入: "));
+    }
+
+    void handleInputChar(int key)
+    {
+        if (key == 13 || key == 10) {                   // 回车：应用
+            const QString text = inputBuf_.trimmed();
+            inputBuf_.clear();
+            inputMode_ = false;
+            applyInput(text);
+            return;
+        }
+        if (key == 27) {                                // Esc：取消
+            inputMode_ = false;
+            inputBuf_.clear();
+            say(QStringLiteral(">> 已取消输入"));
+            return;
+        }
+        if (key == 8) {                                 // 退格
+            if (!inputBuf_.isEmpty()) {
+                inputBuf_.chop(1);
+                say(QStringLiteral("   当前输入: %1").arg(inputBuf_));
+            }
+            return;
+        }
+        if ((key >= '0' && key <= '9') || key == ' ') {
+            inputBuf_.append(QChar(key));
+            say(QStringLiteral("   当前输入: %1").arg(inputBuf_));
+        }
+    }
+
+    void applyInput(const QString &text)
+    {
+        const QStringList parts = text.split(QChar(' '), Qt::SkipEmptyParts);
+        bool okChannel = false;
+        bool okValue = false;
+
+        if (parts.size() == 2) {
+            const int channel = parts.at(0).toInt(&okChannel);
+            const int value   = parts.at(1).toInt(&okValue);
+            if (okChannel && okValue) {
+                if (channel == 0) {
+                    simPaused_ = true;
+                    slave_->setInputRegister(quint16(opt_.tempReg), quint16(value));
+                    say(QStringLiteral(">> 温度原始值已设为 %1（模拟已暂停，按 a 恢复）").arg(value));
+                    return;
+                }
+                if (channel >= 1 && channel <= opt_.pressCount) {
+                    simPaused_ = true;
+                    slave_->setInputRegister(quint16(opt_.pressReg + channel - 1),
+                                             quint16(value));
+                    say(QStringLiteral(">> 压力%1 已设为 %2（模拟已暂停，按 a 恢复）")
+                        .arg(channel).arg(value));
+                    return;
+                }
+                say(QStringLiteral("!! 通道超范围，有效 0~%1").arg(opt_.pressCount));
+                return;
+            }
+        }
+        say(QStringLiteral("!! 格式不对，应为「通道 数值」，例如： 2 1500"));
+    }
+
     void handleKey(int key)
     {
         switch (key) {
@@ -312,6 +387,17 @@ private:
             tick_ += 100;
             updateSimulatedValues();
             say(QStringLiteral(">> 寄存器值已跳变"));
+            break;
+        case 'm': case 'M':
+            inputMode_ = true;
+            inputBuf_.clear();
+            printInputPrompt();
+            break;
+        case 'a': case 'A':
+            simPaused_ = !simPaused_;
+            say(QStringLiteral(">> 自动模拟: %1")
+                .arg(simPaused_ ? QStringLiteral("已暂停（数值保持不动）")
+                                : QStringLiteral("已恢复")));
             break;
         case 'v': case 'V':
             dumpRegisters();
@@ -374,8 +460,9 @@ private:
             .arg(opt_.pressReg + opt_.pressCount - 1, 4, 16, QLatin1Char('0'))
             .arg(opt_.pressCount));
         say(QStringLiteral("------------------------------------------------------"));
-        say(QStringLiteral(" 按键: d=丢应答  c=CRC写错  s=慢应答  x=强制异常04"));
-        say(QStringLiteral("       r=值跳变  v=看寄存器  q=退出   （回车生效）"));
+        say(QStringLiteral(" 故障注入: d=丢应答  c=CRC写错  s=慢应答  x=强制异常04"));
+        say(QStringLiteral(" 数据操作: m=手动设值  a=暂停/恢复自动  r=值跳变  v=看寄存器"));
+        say(QStringLiteral(" 其他    : q=退出                          （按键即时生效）"));
         say(QStringLiteral("======================================================"));
     }
 
@@ -390,6 +477,9 @@ private:
     bool corruptAll_ = false;
     bool slowAll_ = false;
     bool forcedAll_ = false;
+    bool simPaused_ = false;            // 手动设值期间暂停自动模拟
+    bool inputMode_ = false;            // 正在读取「通道 数值」输入
+    QString inputBuf_;
 };
 
 int main(int argc, char *argv[])
