@@ -27,6 +27,8 @@ void MainWindow::init(const QString &configPath)
     lab_[0]=ui->label_1;
     lab_[1]=ui->label_2;
     lab_[2]=ui->label_3;
+    // 温度标签字号跟三路压力保持一致（文字在 readDataShow 里更新）
+    ui->label_wd->setStyleSheet(QStringLiteral("font-size:22px; color:#2C3E50; padding:6px 0;"));
     serialport_=new Serialport();
     thread_=new QThread();
     serialport_->moveToThread(thread_);
@@ -102,7 +104,9 @@ void MainWindow::readDataShow(uint8_t cmd, uint8_t param, int data)
 
     switch (cmd) {
     case static_cast<uint8_t>(COMMAND::WEN_DU_RSP):
-        ui->label_wd->setText(QString("温度:%1").arg(data));
+        // 设备按 0.1℃ 存储（如 276 表示 27.6℃），系数由 [Scale] TempScale 配置
+        ui->label_wd->setText(QString("温度：%1 ℃")
+                              .arg(data * config_.tempScale, 0, 'f', 1));
         break;
     case static_cast<uint8_t>(COMMAND::YI_LI_GAN_RSP):
     {

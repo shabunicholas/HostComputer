@@ -44,5 +44,9 @@ Config Config::load(const QString &path)
     config.modbusPressureRegister=settings.value(QStringLiteral("Protocol/ModbusPressureRegister"),
                                                  config.modbusPressureRegister).toInt();
 
+    // 量程换算系数
+    config.tempScale=settings.value(QStringLiteral("Scale/TempScale"),
+                                    config.tempScale).toDouble();
+
     return config;
 }

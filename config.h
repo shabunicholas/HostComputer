@@ -25,6 +25,10 @@ public:
      int modbusTempRegister = 0;          // 温度：输入寄存器起始地址（读 1 个）
      int modbusPressureRegister = 16;     // 压力：输入寄存器起始地址（连续读 3 个）
 
+     // ---- 量程换算：实际值 = 原始值 × 系数 ----
+     // 设备按 0.1℃ 存储温度时填 0.1；若设备直接发整数摄氏度，改成 1。
+     double tempScale = 0.1;
+
 
 };
 
